@@ -184,3 +184,119 @@ DELETE FROM 成績表
 -- 1. 気象観測テーブル 月
 -- 2. 都道府県テーブル コード
 -- 3. 成績表テーブル 学籍番号
+
+-- 取得行数を限定する別の方法
+SELECT 費目,出金額 FROM 家計簿
+    ORDER BY 出金額 DESC LIMIT 3
+
+SELECT K.費目,K.出金額 
+  FROM (
+    SELECT *,
+        ROW_NUMBER() OVER (ORDER BY 出金額 DESC) RN
+        FROM 家計簿
+  )K
+  WHERE K.RN >= 1 AND K.RN <= 3
+
+
+SELECT 費目,出金額
+  FROM (
+    SELECT K.*, ROWNUM AS RN
+    FROM (
+      SELECT * FROM 家計簿
+      ORDER BY 出金額 DESC
+    )K
+  )
+  WHERE RN >= 1 AND RN <= 3
+
+SELECT TOP(3) 費目,出金額
+    FROM 家計簿 ORDER BY 出金額 DESC
+
+-- これまでに使った費目一覧を、重複を除外して作りたい
+SELECT DISTINCT 費目 FROM 家計簿
+
+-- 3月に使った金額を大きい順に取り出したい
+SELECT * FROM 家計簿
+  WHERE 日付 >= '2024-03-01'
+    AND 日付 <= '2024-03-31'
+  ORDER BY 出金額 DESC
+
+-- これまでの給料を大きい順に5件だけ取り出したい
+SELECT * FROM 家計簿アーカイブ
+  WHERE 費目 = '給料' ORDER BY 入金額 DESC
+OFFSET 0 ROWS
+  FETCH NEXT 5 ROWS ONLY
+
+-- 家計簿と、アーカイブにある2月のデータをまとめて日付順に取り出したい
+SELECT * FROM 家計簿
+  UNION
+SELECT * FROM 家計簿アーカイブ
+ WHERE 日付 >= '2024-02-01'
+   AND 日付<= '2024-02-28'
+ORDER BY 1
+
+-- 今月初めて発生した費目を知りたい
+SELECT 費目 FROM 家計簿
+    EXCEPT
+SELECT 費目 FROM 家計簿アーカイブ
+
+-- 4-7
+-- 1. 注文順かつその明細順に、すべての注文データを取得する
+SELECT * FROM 注文履歴
+  ORDER BY 注文番号,注文枝番;
+
+-- 2. 2024年1月に注文のあった商品名の一覧を商品名順に取得する
+SELECT DISTINCT 商品名 FROM 注文履歴
+  WHERE 日付 >= '2024-01-01' 
+    AND 日付 <= '2024-01-31'
+ ORDER BY 商品名
+
+-- 3. ドリンクの商品について、注文番号、注文枝番、注文金額を取得する。
+--  ただし注文金額の低い方から2～4番目に該当する注文だけを対象とする
+SELECT 注文番号,注文枝番,注文金額 FROM 注文履歴
+  WHERE 分類 = '1' ORDER BY 注文金額
+  OFFSET 1 ROW FETCH NEXT 3 ROWS ONLY;
+-- 4. その他の商品について、2つ以上同時に購入された商品を取得し、日付、
+--   商品名、単価、数量、注文金額を購入日順に表示する。ただし、同日に
+--   売り上げたものは、数量の多い順に表示する
+SELECT 日付,商品名,単価,数量,注文金額 FROM 注文履歴
+  WHERE 分類 = '3' AND 数量 >= 2 
+  ORDER BY 日付,数量 DESC;
+
+-- 5. 商品の分類ごとに、分類、商品名、サイズ、単価を1つの表として取得する
+--   また、サイズはドリンクの商品についてのみ表示し、分類と商品名順に並べること
+SELECT DISTINCT 分類,商品名,サイズ,単価
+  FROM 注文履歴 WHERE 分類 = "1"
+  UNION
+SELECT DISTINCT 分類,商品名,NULL,単価
+  FROM 注文履歴 WHERE 分類 = "2"
+  UNION
+SELECT DISTINCT 分類,商品名,NULL,単価
+  FROM 注文履歴 WHERE 分類 = '3'
+  ORDER BY 1,2;
+
+  -- 4-2
+  -- 1. 和集合の結果、整数テーブルと等しくなる
+SELECT 値 FROM 奇数 UNION SELECT 値 FROM 偶数;
+/*
+奇数テーブルの検索結果と、偶数テーブルの検索結果をすべて足し合わせることで、
+整数の情報が得られます。2つの検索結果の和集合を取得するには、UNION演算子を使用します。
+*/
+
+  -- 2. 差集合の結果、奇数テーブルと等しくなる
+SELECT 値 FROM 整数 EXCEPT SELECT 値 FROM 偶数
+/*
+整数テーブルの検索結果から、偶数テーブルの検索結果と重複する行を取り除くことで、
+奇数の情報が得られます。2つの検索結果の差集合を取得するには、
+EXCEPT演算子を使用します。
+*/
+
+  -- 3. 積集合の結果、偶数テーブルと等しくなる
+SELECT 値 FROM 整数 INTERSECT SELECT 値 FROM 偶数;
+/*
+整数テーブルの検索結果と偶数テーブルの検索結果から、
+重複する行を取得することで、偶数の情報が得られます。
+2つの検索結果の積集合を取得するには、INTERSECT演算子を使用します。
+*/
+
+  -- 4. 検索結果なし
+SELECT 値 FROM 奇数 INTERSECT SELECT 値 FROM 偶数；
